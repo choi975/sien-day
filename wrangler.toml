@@ -1,0 +1,11 @@
+name = "sien-day"
+main = "src/worker.js"
+compatibility_date = "2026-07-09"
+
+assets = { directory = "./public", binding = "ASSETS" }
+
+[[d1_databases]]
+binding = "DB"
+database_name = "sien-day"
+database_id = "96392115-6202-41ae-9b3c-6a07f3a54c7a"
+preview_database_id = "96392115-6202-41ae-9b3c-6a07f3a54c7a"
