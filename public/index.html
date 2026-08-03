@@ -97,6 +97,15 @@
         background: #fff;
       }
 
+      .edit-button:disabled {
+        transform: none;
+        border-color: var(--border);
+        color: var(--muted);
+        background: rgba(255, 255, 255, 0.52);
+        cursor: not-allowed;
+        opacity: 0.72;
+      }
+
       .countdown {
         display: grid;
         place-items: center;
@@ -129,9 +138,33 @@
 
       .status {
         min-height: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        flex-wrap: wrap;
         color: var(--muted);
         font-size: 14px;
         text-align: center;
+      }
+
+      .retry-button {
+        border: 1px solid rgba(200, 63, 107, 0.28);
+        border-radius: 999px;
+        padding: 5px 11px;
+        color: var(--primary-strong);
+        background: rgba(255, 255, 255, 0.82);
+        cursor: pointer;
+      }
+
+      .retry-button:hover {
+        border-color: var(--primary);
+        background: #fff;
+      }
+
+      .retry-button:disabled {
+        cursor: wait;
+        opacity: 0.58;
       }
 
       dialog {
@@ -172,6 +205,45 @@
         color: var(--muted);
         font-size: 14px;
         line-height: 1.6;
+      }
+
+      .password-field {
+        display: grid;
+        gap: 7px;
+      }
+
+      .password-label {
+        color: var(--text);
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .password-field input {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 12px 13px;
+        color: var(--text);
+        background: #fff;
+        outline: none;
+      }
+
+      .password-field input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px var(--ring);
+      }
+
+      .password-help,
+      .editor-error {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .editor-error {
+        min-height: 20px;
+        color: #ba254d;
       }
 
       .icon-button {
@@ -327,10 +399,10 @@
   </head>
   <body>
     <main class="app">
-      <section class="card" aria-label="生理期倒计时">
+      <section class="card" id="countdownCard" aria-label="生理期倒计时" aria-busy="true">
         <header class="topline">
           <span>下一次生理期预计为 <span class="next-date" id="nextDate">加载中</span></span>
-          <button class="edit-button" id="openEditor" type="button">编辑</button>
+          <button class="edit-button" id="openEditor" type="button" aria-describedby="statusText" disabled>编辑</button>
         </header>
 
         <section class="countdown" aria-live="polite">
@@ -341,7 +413,10 @@
         </section>
 
         <footer>
-          <div class="status" id="status"></div>
+          <div class="status" id="status" role="status" aria-live="polite">
+            <span id="statusText">正在连接云端，当前为只读状态</span>
+            <button class="retry-button" id="retryConnection" type="button" hidden>重试连接</button>
+          </div>
         </footer>
       </section>
     </main>
@@ -351,10 +426,18 @@
         <div class="modal-header">
           <div>
             <h2 class="modal-title">校准生理期日期</h2>
-            <p class="modal-note">已发生日期显示“间隔”，预测日期显示“预计间隔”。在线时同步到 D1，离线时保存到本机。</p>
+            <p class="modal-note">已发生日期显示“间隔”，预测日期显示“预计间隔”。修改仅在云端连接正常时开放。</p>
           </div>
           <button class="icon-button" id="closeEditor" type="button" aria-label="关闭">×</button>
         </div>
+
+        <label class="password-field" for="editPassword">
+          <span class="password-label">编辑密码</span>
+          <input id="editPassword" type="password" autocomplete="current-password" required aria-describedby="passwordHelp editorError" />
+          <span class="password-help" id="passwordHelp">密码只用于本次云端保存，不会写入本机缓存。</span>
+        </label>
+
+        <p class="editor-error" id="editorError" role="alert" aria-live="assertive"></p>
 
         <div class="date-list" id="dateList"></div>
 
@@ -374,18 +457,29 @@
       const WORKER_API_BASE_URL = "https://sien-day.choi975.workers.dev";
       const FUTURE_PREDICTION_COUNT = 12;
       const LOCAL_STORAGE_KEY = "sien-day.period-dates";
+      const CACHE_VERSION = 1;
+      const API_TIMEOUT_MS = 8000;
       const API_BASE_URL = getApiBaseUrl();
-      const fallbackDates = ["2026-03-28", "2026-04-25", "2026-05-23", "2026-06-18"];
-      let dates = [...fallbackDates];
+      const APP_STATE = Object.freeze({
+        CHECKING: "checking",
+        READY: "ready",
+        UNAVAILABLE: "unavailable",
+        SAVING: "saving",
+      });
+
+      let appState = APP_STATE.CHECKING;
+      let dates = [];
       let draftDates = [];
-      let isSaving = false;
+      let connectionPromise = null;
 
       const els = {
+        countdownCard: document.querySelector("#countdownCard"),
         nextDate: document.querySelector("#nextDate"),
         countdownPrefix: document.querySelector("#countdownPrefix"),
         daysLeft: document.querySelector("#daysLeft"),
         predictionText: document.querySelector("#predictionText"),
-        status: document.querySelector("#status"),
+        statusText: document.querySelector("#statusText"),
+        retryConnection: document.querySelector("#retryConnection"),
         editor: document.querySelector("#editor"),
         openEditor: document.querySelector("#openEditor"),
         closeEditor: document.querySelector("#closeEditor"),
@@ -394,7 +488,24 @@
         addDate: document.querySelector("#addDate"),
         editorForm: document.querySelector("#editorForm"),
         saveDates: document.querySelector("#saveDates"),
+        editPassword: document.querySelector("#editPassword"),
+        editorError: document.querySelector("#editorError"),
       };
+
+      class HttpError extends Error {
+        constructor(status, message) {
+          super(message);
+          this.name = "HttpError";
+          this.status = status;
+        }
+      }
+
+      class InvalidCloudResponseError extends Error {
+        constructor(message) {
+          super(message);
+          this.name = "InvalidCloudResponseError";
+        }
+      }
 
       function getApiBaseUrl() {
         const host = window.location.hostname;
@@ -402,6 +513,30 @@
         const isLocalDev = host === "localhost" || host === "127.0.0.1" || host === "[::1]";
         const isWorker = host.endsWith(".workers.dev");
         return isLocalDev || isWorker ? "" : WORKER_API_BASE_URL;
+      }
+
+      function isValidIsoDate(value) {
+        if (typeof value !== "string") return false;
+        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+        if (!match) return false;
+
+        const year = Number(match[1]);
+        const month = Number(match[2]);
+        const day = Number(match[3]);
+        if (year < 1000 || month < 1 || month > 12 || day < 1) return false;
+
+        const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+        return day <= daysInMonth;
+      }
+
+      function validateAndNormalizeDateList(values, { allowEmpty = false } = {}) {
+        if (!Array.isArray(values) || values.some((value) => !isValidIsoDate(value))) {
+          throw new TypeError("日期格式无效");
+        }
+
+        const normalized = [...new Set(values)].sort();
+        if (!allowEmpty && !normalized.length) throw new TypeError("请至少保留一个日期");
+        return normalized;
       }
 
       function parseDate(value) {
@@ -423,6 +558,20 @@
       function formatChineseDate(value) {
         const date = parseDate(value);
         return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+      }
+
+      function formatSyncTime(value) {
+        if (typeof value !== "string") return "";
+        const timestamp = new Date(value);
+        if (Number.isNaN(timestamp.getTime())) return "";
+
+        return new Intl.DateTimeFormat("zh-CN", {
+          month: "numeric",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        }).format(timestamp);
       }
 
       function daysBetween(from, to) {
@@ -471,54 +620,199 @@
         return { next, interval, remaining };
       }
 
-      function normalizeDateList(values) {
-        return [...new Set(values)]
-          .filter(Boolean)
-          .filter((value) => /^\d{4}-\d{2}-\d{2}$/.test(value))
-          .sort();
-      }
-
-      function readLocalDates() {
+      function readLocalCache() {
         try {
-          const stored = JSON.parse(window.localStorage.getItem(LOCAL_STORAGE_KEY) || "[]");
-          return normalizeDateList(stored);
+          const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+          if (!raw) return null;
+
+          const stored = JSON.parse(raw);
+          if (Array.isArray(stored)) {
+            return {
+              version: CACHE_VERSION,
+              dates: validateAndNormalizeDateList(stored),
+              syncedAt: null,
+              isLegacy: true,
+            };
+          }
+
+          if (!stored || stored.version !== CACHE_VERSION) return null;
+          return {
+            version: CACHE_VERSION,
+            dates: validateAndNormalizeDateList(stored.dates),
+            syncedAt: formatSyncTime(stored.syncedAt) ? stored.syncedAt : null,
+            isLegacy: false,
+          };
         } catch {
-          return [];
+          return null;
         }
       }
 
-      function writeLocalDates(values) {
+      function writeLocalCache(values) {
+        const normalizedDates = validateAndNormalizeDateList(values);
+        const cache = {
+          version: CACHE_VERSION,
+          dates: normalizedDates,
+          syncedAt: new Date().toISOString(),
+        };
+
         try {
-          window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(normalizeDateList(values)));
+          window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cache));
         } catch {
-          // Private browsing or storage restrictions should not block the UI.
+          // Storage restrictions must not block cloud-backed use of the page.
         }
+
+        return cache;
+      }
+
+      function extractCloudDates(data) {
+        if (!data || !Array.isArray(data.dates)) {
+          throw new InvalidCloudResponseError("云端日期响应格式无效");
+        }
+
+        const values = data.dates.map((item) => {
+          if (typeof item === "string") return item;
+          if (item && typeof item.date === "string") return item.date;
+          throw new InvalidCloudResponseError("云端日期响应包含无效记录");
+        });
+
+        try {
+          return validateAndNormalizeDateList(values);
+        } catch {
+          throw new InvalidCloudResponseError("云端日期响应包含无效日期");
+        }
+      }
+
+      async function readResponseJson(response) {
+        const data = await response.json().catch(() => null);
+        if (data === null) throw new InvalidCloudResponseError("云端返回了无法解析的响应");
+        return data;
       }
 
       async function fetchApi(path, options = {}) {
         const controller = new AbortController();
-        const timeout = window.setTimeout(() => controller.abort(), 5000);
+        const timeout = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
         try {
-          return await fetch(`${API_BASE_URL}${path}`, { ...options, signal: controller.signal });
+          return await fetch(`${API_BASE_URL}${path}`, {
+            cache: "no-store",
+            ...options,
+            signal: controller.signal,
+          });
         } finally {
           window.clearTimeout(timeout);
         }
       }
 
-      function render() {
+      function renderCountdown() {
+        if (!dates.length) {
+          els.nextDate.textContent = "等待云端";
+          els.countdownPrefix.textContent = "倒计时";
+          els.daysLeft.textContent = "--";
+          els.predictionText.textContent =
+            appState === APP_STATE.UNAVAILABLE
+              ? "暂无本机缓存，请重试连接云端"
+              : "暂无本机缓存，正在读取云端日期记录";
+          return;
+        }
+
         const prediction = getPrediction(dates);
-        els.nextDate.textContent = formatChineseDate(prediction.next);
         const isOverdue = prediction.remaining < 0;
+        els.nextDate.textContent = formatChineseDate(prediction.next);
         els.countdownPrefix.textContent = isOverdue ? "已逾期" : "倒计时";
         els.daysLeft.textContent = Math.abs(prediction.remaining);
-        els.predictionText.textContent =
-          !isOverdue
-            ? `按最近一次间隔 ${prediction.interval} 天预测`
-            : `预测日期已过去 ${Math.abs(prediction.remaining)} 天，请点击编辑校准`;
+        els.predictionText.textContent = !isOverdue
+          ? `按最近一次间隔 ${prediction.interval} 天预测`
+          : appState === APP_STATE.READY
+            ? `预测日期已过去 ${Math.abs(prediction.remaining)} 天，请点击编辑校准`
+            : `预测日期已过去 ${Math.abs(prediction.remaining)} 天，连接云端后可编辑校准`;
+      }
+
+      function updateEditorInteractivity() {
+        const isReadOnly = appState !== APP_STATE.READY;
+        els.addDate.disabled = isReadOnly;
+        els.saveDates.disabled = isReadOnly;
+        els.editPassword.disabled = isReadOnly;
+        els.saveDates.textContent = appState === APP_STATE.SAVING ? "保存中" : "保存";
+
+        els.dateList.querySelectorAll("input[data-date-kind='confirmed']").forEach((input) => {
+          input.disabled = isReadOnly;
+        });
+        els.dateList.querySelectorAll("button").forEach((button) => {
+          button.disabled = isReadOnly;
+        });
+      }
+
+      function setAppState(nextState, { message = "", isError = false, showRetry } = {}) {
+        appState = nextState;
+        const canEdit = nextState === APP_STATE.READY && dates.length > 0;
+        const isBusy = nextState === APP_STATE.CHECKING || nextState === APP_STATE.SAVING;
+
+        els.countdownCard.setAttribute("aria-busy", String(isBusy));
+        els.openEditor.disabled = !canEdit;
+        els.openEditor.title = canEdit ? "校准生理期日期" : "连接云端后才能编辑";
+        els.statusText.textContent = message;
+        els.statusText.classList.toggle("error", isError);
+        const shouldShowRetry = showRetry ?? nextState === APP_STATE.UNAVAILABLE;
+        els.retryConnection.hidden = !shouldShowRetry || API_BASE_URL === null;
+        els.retryConnection.disabled = isBusy;
+        renderCountdown();
+        updateEditorInteractivity();
+      }
+
+      function getCheckingMessage(cache) {
+        if (!cache) return "正在连接云端，当前为只读状态";
+        if (cache.isLegacy) return "正在连接云端，当前显示旧版本机缓存（只读）";
+
+        const syncTime = formatSyncTime(cache.syncedAt);
+        return syncTime
+          ? `正在连接云端，当前显示 ${syncTime} 同步的缓存（只读）`
+          : "正在连接云端，当前显示上次同步缓存（只读）";
+      }
+
+      function getUnavailableMessage() {
+        return dates.length
+          ? "云端暂不可用，当前显示上次同步缓存（只读）"
+          : "云端暂不可用且暂无本机缓存（只读）";
+      }
+
+      async function connectToCloud({ cache = null } = {}) {
+        if (connectionPromise) return connectionPromise;
+
+        if (API_BASE_URL === null) {
+          setAppState(APP_STATE.UNAVAILABLE, {
+            message: dates.length
+              ? "本地文件模式无法连接云端，当前显示本机缓存（只读）"
+              : "本地文件模式无法连接云端，且暂无本机缓存（只读）",
+            showRetry: false,
+          });
+          return null;
+        }
+
+        setAppState(APP_STATE.CHECKING, { message: getCheckingMessage(cache) });
+        connectionPromise = (async () => {
+          try {
+            const response = await fetchApi("/api/period-dates", {
+              headers: { accept: "application/json" },
+            });
+            const data = await readResponseJson(response);
+            if (!response.ok) throw new HttpError(response.status, data.error || "云端读取失败");
+
+            const cloudDates = extractCloudDates(data);
+            dates = cloudDates;
+            writeLocalCache(cloudDates);
+            setAppState(APP_STATE.READY, { message: "已连接云端，日期可编辑" });
+          } catch {
+            setAppState(APP_STATE.UNAVAILABLE, { message: getUnavailableMessage(), showRetry: true });
+          } finally {
+            connectionPromise = null;
+          }
+        })();
+
+        return connectionPromise;
       }
 
       function renderEditor() {
+        const isReadOnly = appState !== APP_STATE.READY;
         const rows = [
           ...draftDates.map((date) => ({ date, isPrediction: false })),
           ...buildFuturePredictions(draftDates).map((date) => ({ date, isPrediction: true })),
@@ -538,169 +832,219 @@
             const gap = previous
               ? `${row.isPrediction ? "预计间隔" : "间隔"}${daysBetween(parseDate(previous), parseDate(row.date))}天`
               : "";
-            const showTodayButton =
-              !isTodayRecorded &&
-              isInRecordWindow &&
-              index === firstPredictionIndex;
+            const showTodayButton = !isTodayRecorded && isInRecordWindow && index === firstPredictionIndex;
+            const disabled = row.isPrediction || isReadOnly ? "disabled" : "";
             const actionButtons = [
               row.isPrediction
                 ? ""
-                : `<button class="remove" type="button" data-remove="${index}" aria-label="删除 ${formatChineseDate(row.date)}">删除</button>`,
+                : `<button class="remove" type="button" data-remove="${index}" aria-label="删除 ${formatChineseDate(row.date)}" ${isReadOnly ? "disabled" : ""}>删除</button>`,
               showTodayButton
-                ? `<button class="quick-today" type="button" data-record-today="true" aria-label="把今天 ${formatChineseDate(todayValue)} 记为明确日期">记为今天</button>`
+                ? `<button class="quick-today" type="button" data-record-today="true" aria-label="把今天 ${formatChineseDate(todayValue)} 记为明确日期" ${isReadOnly ? "disabled" : ""}>记为今天</button>`
                 : "",
             ]
               .filter(Boolean)
               .join("");
             return `
               <div class="date-row ${row.isPrediction ? "prediction" : ""}" data-index="${index}">
-                <input type="date" value="${row.date}" ${row.isPrediction ? "disabled" : ""} aria-label="${row.isPrediction ? "预测日期" : "生理期日期"}" />
+                <input type="date" value="${row.date}" data-date-kind="${row.isPrediction ? "prediction" : "confirmed"}" ${disabled} aria-label="${row.isPrediction ? "预测日期" : "生理期日期"}" />
                 <span class="gap">${gap}</span>
                 ${actionButtons ? `<div class="row-actions">${actionButtons}</div>` : "<span></span>"}
               </div>
             `;
           })
           .join("");
+
+        updateEditorInteractivity();
       }
 
-      async function loadDates() {
-        const localDates = readLocalDates();
-        dates = localDates.length ? localDates : [...fallbackDates];
+      function setEditorError(message = "") {
+        els.editorError.textContent = message;
+      }
 
-        if (API_BASE_URL === null) {
-          els.status.textContent = "已使用本地日期（离线模式）";
-          render();
-          return;
-        }
+      function resetEditor() {
+        draftDates = [];
+        els.editPassword.value = "";
+        setEditorError();
+      }
 
+      async function saveDates(nextDates, password) {
+        if (appState !== APP_STATE.READY) return;
+
+        let normalizedDates;
         try {
-          const response = await fetchApi("/api/period-dates", {
-            headers: { accept: "application/json" },
-          });
-          if (!response.ok) throw new Error("云端读取失败");
-          const data = await response.json();
-          dates = normalizeDateList((data.dates || []).map((item) => item.date));
-          if (!dates.length) dates = [...fallbackDates];
-          writeLocalDates(dates);
-          els.status.textContent = "已连接云端数据库";
+          normalizedDates = validateAndNormalizeDateList(nextDates);
         } catch (error) {
-          els.status.textContent = localDates.length
-            ? "云端暂不可用，已使用本地日期"
-            : "云端暂不可用，已使用本地初始日期";
-        }
-
-        render();
-      }
-
-      async function saveDates(nextDates) {
-        if (isSaving) return;
-        isSaving = true;
-        els.saveDates.disabled = true;
-        els.saveDates.textContent = "保存中";
-
-        const normalizedDates = normalizeDateList(nextDates);
-        writeLocalDates(normalizedDates);
-        dates = normalizedDates;
-        render();
-
-        if (API_BASE_URL === null) {
-          els.editor.close();
-          els.status.textContent = "日期已保存到本机（离线模式）";
-          isSaving = false;
-          els.saveDates.disabled = false;
-          els.saveDates.textContent = "保存";
+          setEditorError(`${error.message}。`);
           return;
         }
+
+        if (!password) {
+          setEditorError("请输入编辑密码。");
+          els.editPassword.focus();
+          return;
+        }
+        if (/[\r\n]/.test(password)) {
+          setEditorError("编辑密码不能包含换行符。");
+          els.editPassword.focus();
+          return;
+        }
+
+        setEditorError();
+        setAppState(APP_STATE.SAVING, { message: "正在保存到云端，页面暂时只读" });
 
         try {
           const response = await fetchApi("/api/period-dates", {
             method: "PUT",
-            headers: { "content-type": "application/json", accept: "application/json" },
-            body: JSON.stringify({ dates: nextDates }),
+            headers: {
+              authorization: `Bearer ${password}`,
+              "content-type": "application/json",
+              accept: "application/json",
+            },
+            body: JSON.stringify({ dates: normalizedDates }),
           });
+          const data = await readResponseJson(response);
 
-          const data = await response.json().catch(() => ({}));
-          if (!response.ok) throw new Error(data.error || "保存失败");
+          if (response.status === 401 || response.status === 403) {
+            setAppState(APP_STATE.READY, { message: "已连接云端，修改尚未保存" });
+            els.editPassword.value = "";
+            setEditorError("编辑密码错误，请重新输入后再试。");
+            els.editPassword.focus();
+            return;
+          }
+          if (!response.ok) throw new HttpError(response.status, data.error || "云端保存失败");
 
-          dates = normalizeDateList((data.dates || []).map((item) => item.date));
-          writeLocalDates(dates);
-          render();
+          const savedDates = extractCloudDates(data);
+          dates = savedDates;
+          writeLocalCache(savedDates);
+          els.editPassword.value = "";
           els.editor.close();
-          els.status.textContent = "日期已保存到云端数据库";
+          setAppState(APP_STATE.READY, { message: "日期已保存到云端数据库" });
         } catch (error) {
-          els.editor.close();
-          els.status.textContent = "日期已保存到本机，云端同步暂时失败";
-        } finally {
-          isSaving = false;
-          els.saveDates.disabled = false;
-          els.saveDates.textContent = "保存";
+          if (error instanceof HttpError && error.status < 500) {
+            setAppState(APP_STATE.READY, {
+              message: "云端保存失败，已保留原有日期",
+              isError: true,
+            });
+            setEditorError(`${error.message}，本机缓存和当前倒计时均未修改。`);
+            return;
+          }
+
+          els.editPassword.value = "";
+          setAppState(APP_STATE.UNAVAILABLE, {
+            message: "保存未成功，已保留原有日期（只读）",
+            isError: true,
+            showRetry: true,
+          });
+          setEditorError(
+            error instanceof HttpError
+              ? `${error.message}，本机缓存和当前倒计时均未修改。关闭窗口后可重试连接。`
+              : "未能确认云端保存结果，本机缓存和当前倒计时均未修改。关闭窗口后可重试连接。",
+          );
         }
       }
 
       els.openEditor.addEventListener("click", () => {
+        if (appState !== APP_STATE.READY || !dates.length) return;
         draftDates = [...dates];
+        els.editPassword.value = "";
+        setEditorError();
         renderEditor();
         els.editor.showModal();
+        els.editPassword.focus();
       });
 
       els.closeEditor.addEventListener("click", () => els.editor.close());
       els.cancelEdit.addEventListener("click", () => els.editor.close());
+      els.editor.addEventListener("close", resetEditor);
 
       els.addDate.addEventListener("click", () => {
-        const next = draftDates.length ? getPrediction(draftDates).next : toIsoDate(new Date());
-        draftDates = normalizeDateList([...draftDates, next]);
+        if (appState !== APP_STATE.READY) return;
+        const next = draftDates.length ? getPrediction(draftDates).next : getTodayIsoDate();
+        draftDates = validateAndNormalizeDateList([...draftDates, next]);
+        setEditorError();
         renderEditor();
       });
 
       els.dateList.addEventListener("input", (event) => {
-        if (event.target.matches("input[type='date']:not(:disabled)")) {
-          const rows = [...els.dateList.querySelectorAll(".date-row")].slice(0, draftDates.length);
-          draftDates = normalizeDateList(rows.map((row) => row.querySelector("input").value));
+        if (appState !== APP_STATE.READY || !event.target.matches("input[data-date-kind='confirmed']")) return;
+
+        const values = [...els.dateList.querySelectorAll("input[data-date-kind='confirmed']")].map(
+          (input) => input.value,
+        );
+        try {
+          draftDates = validateAndNormalizeDateList(values, { allowEmpty: true });
+          setEditorError();
           renderEditor();
+        } catch {
+          setEditorError("请选择有效的日期。");
         }
       });
 
-      els.dateList.addEventListener("click", async (event) => {
+      els.dateList.addEventListener("click", (event) => {
+        if (appState !== APP_STATE.READY) return;
+
         const recordTodayButton = event.target.closest("[data-record-today]");
         if (recordTodayButton) {
           const todayValue = getTodayIsoDate();
-          const nextDates = normalizeDateList([...draftDates, todayValue]);
-
+          const nextDates = validateAndNormalizeDateList([...draftDates, todayValue]);
           if (nextDates.length === draftDates.length) {
-            els.status.textContent = "今天已经记录过了";
-            renderEditor();
+            setEditorError("今天已经记录过了。");
             return;
           }
 
           draftDates = nextDates;
+          setEditorError();
           renderEditor();
-          await saveDates(nextDates);
           return;
         }
 
-        const removeIndex = event.target.dataset.remove;
-        if (removeIndex !== undefined) {
-          draftDates.splice(Number(removeIndex), 1);
-          draftDates = normalizeDateList(draftDates);
-          renderEditor();
-        }
+        const removeButton = event.target.closest("[data-remove]");
+        if (!removeButton) return;
+        draftDates.splice(Number(removeButton.dataset.remove), 1);
+        draftDates = validateAndNormalizeDateList(draftDates, { allowEmpty: true });
+        setEditorError();
+        renderEditor();
       });
 
       els.editorForm.addEventListener("submit", (event) => {
         event.preventDefault();
-        const nextDates = normalizeDateList(
-          [...els.dateList.querySelectorAll("input[type='date']:not(:disabled)")].map((input) => input.value),
+        if (appState !== APP_STATE.READY) return;
+
+        const values = [...els.dateList.querySelectorAll("input[data-date-kind='confirmed']")].map(
+          (input) => input.value,
         );
-
-        if (!nextDates.length) {
-          els.status.innerHTML = '<span class="error">请至少保留一个日期。</span>';
-          return;
-        }
-
-        saveDates(nextDates);
+        saveDates(values, els.editPassword.value);
       });
 
-      loadDates();
+      els.retryConnection.addEventListener("click", () => {
+        if (appState !== APP_STATE.UNAVAILABLE) return;
+        connectToCloud();
+      });
+
+      window.addEventListener("online", () => {
+        if (appState === APP_STATE.UNAVAILABLE) connectToCloud();
+      });
+
+      window.addEventListener("offline", () => {
+        if (appState !== APP_STATE.READY) return;
+        els.editPassword.value = "";
+        setAppState(APP_STATE.UNAVAILABLE, {
+          message: getUnavailableMessage(),
+          showRetry: true,
+        });
+      });
+
+      function initialize() {
+        const cache = readLocalCache();
+        if (cache) dates = cache.dates;
+
+        // Render synchronously before the first network await so cached data is visible immediately.
+        renderCountdown();
+        setAppState(APP_STATE.CHECKING, { message: getCheckingMessage(cache) });
+        void connectToCloud({ cache });
+      }
+
+      initialize();
     </script>
   </body>
 </html>
