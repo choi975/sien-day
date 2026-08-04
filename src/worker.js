@@ -1,5 +1,8 @@
 const API_PATH = "/api/period-dates";
 const GITHUB_PAGES_ORIGIN = "https://choi975.github.io";
+const DEFAULT_INTERVAL_DAYS = 28;
+const REMINDER_THRESHOLD_DAYS = 3;
+const BEIJING_UTC_OFFSET_MS = 8 * 60 * 60 * 1000;
 
 export default {
   async fetch(request, env) {
@@ -51,7 +54,99 @@ export default {
 
     return env.ASSETS.fetch(request);
   },
+
+  async scheduled(event, env) {
+    await runScheduled(env);
+  },
 };
+
+export async function runScheduled(env) {
+  const result = await env.DB.prepare(`
+    SELECT start_date AS date, is_confirmed AS confirmed
+    FROM period_dates
+    ORDER BY start_date ASC
+  `).all();
+
+  const dates = (result.results || [])
+    .map((row) => row.date)
+    .filter((date) => typeof date === "string" && isValidDateString(date));
+
+  const prediction = getNextPrediction(dates);
+  if (!prediction) {
+    return { pushed: false, reason: "no-dates" };
+  }
+
+  const { next, remaining } = prediction;
+  if (remaining < 0) {
+    return { pushed: false, reason: "overdue" };
+  }
+  if (remaining > REMINDER_THRESHOLD_DAYS) {
+    return { pushed: false, reason: "too-far", remaining };
+  }
+
+  const pushDate = getTodayIsoDateInBeijing();
+  const alreadyPushed = await env.DB.prepare(`
+    SELECT 1
+    FROM bark_push_log
+    WHERE predicted_date = ? AND push_date = ?
+  `).bind(next, pushDate).first();
+  if (alreadyPushed) {
+    return { pushed: false, reason: "already-pushed", remaining };
+  }
+
+  if (typeof env.BARK_URL !== "string" || env.BARK_URL.length === 0) {
+    console.error("Bark reminder skipped: BARK_URL secret is not configured.");
+    return { pushed: false, reason: "no-bark-url" };
+  }
+
+  const message = `倒计时：${remaining}天`;
+  const barkUrl = `${env.BARK_URL.replace(/\/+$/, "")}/${encodeURIComponent(message)}`;
+  const response = await fetch(barkUrl);
+  if (!response.ok) {
+    throw new Error(`Bark push failed with HTTP ${response.status}`);
+  }
+
+  await env.DB.prepare(`
+    INSERT OR IGNORE INTO bark_push_log (predicted_date, push_date, message, pushed_at)
+    VALUES (?, ?, ?, ?)
+  `).bind(next, pushDate, message, new Date().toISOString()).run();
+
+  return { pushed: true, message, remaining, next };
+}
+
+export function getNextPrediction(dates) {
+  const sorted = [...new Set(dates.filter(isValidDateString))].sort();
+  if (sorted.length === 0) return null;
+
+  const last = sorted[sorted.length - 1];
+  const previous = sorted[sorted.length - 2];
+  const interval = previous ? daysBetween(previous, last) : DEFAULT_INTERVAL_DAYS;
+  const next = addDays(last, interval);
+  const remaining = daysBetween(getTodayIsoDateInBeijing(), next);
+
+  return { next, interval, remaining };
+}
+
+function getTodayIsoDateInBeijing() {
+  const shifted = new Date(Date.now() + BEIJING_UTC_OFFSET_MS);
+  return [
+    shifted.getUTCFullYear(),
+    String(shifted.getUTCMonth() + 1).padStart(2, "0"),
+    String(shifted.getUTCDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function daysBetween(fromIso, toIso) {
+  return Math.round(
+    (Date.parse(`${toIso}T00:00:00Z`) - Date.parse(`${fromIso}T00:00:00Z`)) / 86400000,
+  );
+}
+
+function addDays(iso, days) {
+  const date = new Date(`${iso}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
 
 async function listDates(env) {
   const result = await env.DB.prepare(`

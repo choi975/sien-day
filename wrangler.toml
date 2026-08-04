@@ -9,3 +9,7 @@ binding = "DB"
 database_name = "sien-day"
 database_id = "96392115-6202-41ae-9b3c-6a07f3a54c7a"
 preview_database_id = "96392115-6202-41ae-9b3c-6a07f3a54c7a"
+
+[triggers]
+# 每天北京时间 08:30 运行（Cloudflare cron 使用 UTC，08:30 北京时间 = 00:30 UTC）
+crons = ["30 0 * * *"]
