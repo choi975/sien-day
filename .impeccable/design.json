@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-24T01:54:20.5472239+08:00",
+  "title": "Design System: 生理期倒计时",
+  "extensions": {
+    "colorMeta": {
+      "berry": {
+        "role": "primary",
+        "displayName": "Countdown Berry",
+        "canonical": "#ca4164",
+        "tonalRamp": ["#42101f", "#681a31", "#8e2744", "#a92e50", "#ca4164", "#df7893", "#efafc0", "#fae9ee"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Graphite Ink",
+        "canonical": "#15181d",
+        "tonalRamp": ["#15181d", "#2c3138", "#4a5059", "#68717d", "#969da6", "#cbd0d6", "#e2e5e9", "#f7f8fa"]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Main White",
+        "canonical": "#ffffff",
+        "tonalRamp": ["#15181d", "#30343a", "#565b63", "#838991", "#b4b9bf", "#d9dde1", "#f0f2f4", "#ffffff"]
+      },
+      "green": {
+        "role": "secondary",
+        "displayName": "Synced Green",
+        "canonical": "#2f7864",
+        "tonalRamp": ["#09271f", "#123e33", "#1b5547", "#246c5a", "#2f7864", "#66a08f", "#a8c9bf", "#e8f2ee"]
+      },
+      "amber": {
+        "role": "tertiary",
+        "displayName": "Overdue Amber",
+        "canonical": "#a65337",
+        "tonalRamp": ["#35140b", "#542317", "#733321", "#8d432d", "#a65337", "#c98068", "#e3b4a3", "#faece7"]
+      },
+      "focus": {
+        "role": "secondary",
+        "displayName": "Focus Blue",
+        "canonical": "#416e9f",
+        "tonalRamp": ["#10243b", "#193957", "#254e73", "#31618d", "#416e9f", "#7897ba", "#b1c5dc", "#eaf0f7"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Focal Numeral",
+        "purpose": "The remaining-day count only."
+      },
+      "body": {
+        "displayName": "Native CJK UI",
+        "purpose": "Chinese copy, headings, dates, controls, and status text."
+      }
+    },
+    "shadows": [
+      {
+        "name": "sheet-separation",
+        "value": "-18px 0 54px rgba(31, 37, 45, 0.18)",
+        "purpose": "Separate the desktop editor sheet from the countdown surface."
+      },
+      {
+        "name": "toast-lift",
+        "value": "0 14px 36px rgba(31, 37, 45, 0.2)",
+        "purpose": "Lift transient confirmation above the active surface."
+      }
+    ],
+    "motion": [
+      {
+        "name": "sheet-entry",
+        "value": "240ms cubic-bezier(0.2, 0.82, 0.2, 1)",
+        "purpose": "Move the editor sheet in from the right by 24px."
+      },
+      {
+        "name": "control-state",
+        "value": "150ms ease",
+        "purpose": "Hover and color transitions on compact controls."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile",
+        "value": "560px"
+      },
+      {
+        "name": "minimum",
+        "value": "320px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Countdown Readout",
+      "kind": "custom",
+      "refersTo": "countdown-readout",
+      "description": "The single focal value in the first viewport.",
+      "html": "<div class=\"ds-countdown\"><span>还有</span><strong>12</strong><span>天</span></div>",
+      "css": ".ds-countdown { min-height: 160px; display: flex; align-items: baseline; justify-content: center; gap: 12px; color: #15181d; font: 740 19px/1 -apple-system, 'PingFang SC', sans-serif; } .ds-countdown strong { color: #ca4164; font: 800 128px/1 'Manrope Display', sans-serif; font-variant-numeric: tabular-nums; letter-spacing: 0; }"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one principal command on the countdown and sheet footer.",
+      "html": "<button class=\"ds-btn-primary\">更新日期</button>",
+      "css": ".ds-btn-primary { min-height: 46px; border: 1px solid #15181d; border-radius: 10px; padding: 0 18px; color: #fff; background: #15181d; font: 720 14px/1.7 -apple-system, 'PingFang SC', sans-serif; transition: transform 140ms ease, background 150ms ease; } .ds-btn-primary:hover { background: #2b3037; transform: translateY(-1px); } .ds-btn-primary:focus-visible { outline: 3px solid #416e9f; outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "A quiet cancel or fallback command.",
+      "html": "<button class=\"ds-btn-secondary\">取消</button>",
+      "css": ".ds-btn-secondary { min-height: 46px; border: 1px solid #cbd0d6; border-radius: 10px; padding: 0 18px; color: #15181d; background: #fff; font: 720 14px/1.7 -apple-system, 'PingFang SC', sans-serif; } .ds-btn-secondary:hover { background: #f7f8fa; } .ds-btn-secondary:focus-visible { outline: 3px solid #416e9f; outline-offset: 2px; }"
+    },
+    {
+      "name": "Password Input",
+      "kind": "input",
+      "refersTo": "password-input",
+      "description": "Password protection appears only inside the editor.",
+      "html": "<label class=\"ds-field\">编辑密码<input type=\"password\" /></label>",
+      "css": ".ds-field { display: grid; gap: 7px; color: #15181d; font: 720 12px/1.7 -apple-system, 'PingFang SC', sans-serif; } .ds-field input { width: 100%; height: 44px; border: 1px solid #cbd0d6; border-radius: 9px; padding: 0 12px; color: #15181d; background: #fff; font: 400 16px/1.7 -apple-system, 'PingFang SC', sans-serif; } .ds-field input:focus-visible { outline: 3px solid #416e9f; outline-offset: 2px; border-color: #416e9f; }"
+    },
+    {
+      "name": "Sync Footer",
+      "kind": "custom",
+      "refersTo": "sync-footer",
+      "description": "A subordinate line that keeps cloud state explicit.",
+      "html": "<div class=\"ds-sync\"><span></span>云端已同步</div>",
+      "css": ".ds-sync { height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px; border-top: 1px solid #e2e5e9; color: #68717d; background: #f7f8fa; font: 400 11px/1.7 -apple-system, 'PingFang SC', sans-serif; } .ds-sync span { width: 6px; height: 6px; border-radius: 50%; background: #2f7864; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Countdown",
+    "overview": "This system answers one private, practical question with a single commanding number. Cool white space, graphite typography, fine neutral rules, and one berry focal accent make the next expected date understandable within seconds without turning a personal utility into a health dashboard. Routine viewing remains nearly weightless; correction appears only in a deliberate full-height editor. Cloud availability, cached read-only behavior, overdue state, saving, success, and failure stay explicit through restrained functional color and plain language rather than decorative wellness imagery.",
+    "keyCharacteristics": [
+      "One centered countdown dominates the first viewport.",
+      "Main content sits on pure white; the sync footer alone uses a quiet cool-gray field.",
+      "Graphite carries structure, berry carries the focal number, and functional colors carry state only.",
+      "Editing is a deliberate right-side sheet on desktop and a full-width sheet on mobile.",
+      "Thin rules, compact controls, and restrained radii replace cards, glass, and ornamental chrome."
+    ],
+    "rules": [
+      {
+        "name": "The Berry Is Meaning Rule",
+        "body": "Berry belongs to the countdown, prediction emphasis, and destructive or corrective details; it never becomes a broad background wash.",
+        "section": "colors"
+      },
+      {
+        "name": "The Numeral Monopolizes Display Rule",
+        "body": "Manrope Display 800 is reserved for the focal day count; headings, buttons, dates, and Chinese copy stay in the system CJK UI stack.",
+        "section": "typography"
+      },
+      {
+        "name": "The One-Question Rule",
+        "body": "Keep the first viewport centered on the countdown, predicted date, one update task, and sync state; additional records and predictions belong behind the editor.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat-by-Default Rule",
+        "body": "Resting surfaces use whitespace, tone, and rules; reserve shadows for overlays that must separate from active content.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do keep the countdown and predicted date legible within seconds, with the day count as the only display-scale element.",
+      "Do keep the main canvas Main White, the sync footer Sync Mist, and the focal numeral Countdown Berry.",
+      "Do use Readable Muted (#68717d) for normal secondary copy and Focus Blue (#416e9f) for the visible 3px keyboard ring.",
+      "Do preserve cloud and cached read-only clarity before exposing edit controls.",
+      "Do use tabular numerals for dates and changing countdown values."
+    ],
+    "donts": [
+      "Don't add dashboard density, metric grids, decorative wellness chrome, glass, gradients, or ornamental cards.",
+      "Don't spread berry across large surfaces or use green, amber, and blue outside their documented functional meanings.",
+      "Don't use Manrope Display for body copy, Chinese headings, labels, or controls.",
+      "Don't hide connection, saving, overdue, or error meaning behind color or icons alone.",
+      "Don't exceed the restrained 6-10px control-radius language except for true circles and the incidental scrollbar pill."
+    ]
+  }
+}

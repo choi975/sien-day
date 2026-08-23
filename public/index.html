@@ -3,453 +3,126 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
     <title>生理期倒计时</title>
-    <style>
-      :root {
-        color-scheme: light;
-        --bg: #f7eef2;
-        --panel: rgba(255, 255, 255, 0.78);
-        --panel-strong: #ffffff;
-        --text: #32252b;
-        --muted: #7b6871;
-        --primary: #c83f6b;
-        --primary-strong: #a92f57;
-        --ring: rgba(200, 63, 107, 0.24);
-        --border: rgba(83, 55, 66, 0.14);
-        --shadow: 0 24px 80px rgba(136, 56, 88, 0.18);
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        min-height: 100vh;
-        margin: 0;
-        font-family:
-          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei",
-          sans-serif;
-        color: var(--text);
-        background:
-          radial-gradient(circle at top left, rgba(244, 173, 194, 0.5), transparent 32rem),
-          linear-gradient(135deg, #fff7f9 0%, var(--bg) 52%, #f1f6ff 100%);
-      }
-
-      button,
-      input {
-        font: inherit;
-      }
-
-      .app {
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        padding: 32px 18px;
-      }
-
-      .card {
-        width: min(760px, 100%);
-        min-height: min(560px, calc(100vh - 64px));
-        display: grid;
-        grid-template-rows: auto 1fr auto;
-        gap: 28px;
-        padding: clamp(24px, 5vw, 48px);
-        border: 1px solid var(--border);
-        border-radius: 28px;
-        background: var(--panel);
-        box-shadow: var(--shadow);
-        backdrop-filter: blur(20px);
-      }
-
-      .topline {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 12px;
-        flex-wrap: wrap;
-        text-align: center;
-        color: var(--muted);
-        font-size: clamp(16px, 2.5vw, 22px);
-        line-height: 1.55;
-      }
-
-      .next-date {
-        color: var(--text);
-        font-weight: 800;
-      }
-
-      .edit-button {
-        border: 1px solid rgba(200, 63, 107, 0.3);
-        border-radius: 999px;
-        padding: 8px 15px;
-        color: var(--primary-strong);
-        background: rgba(255, 255, 255, 0.78);
-        cursor: pointer;
-        transition:
-          transform 160ms ease,
-          border-color 160ms ease,
-          background 160ms ease;
-      }
-
-      .edit-button:hover {
-        transform: translateY(-1px);
-        border-color: var(--primary);
-        background: #fff;
-      }
-
-      .edit-button:disabled {
-        transform: none;
-        border-color: var(--border);
-        color: var(--muted);
-        background: rgba(255, 255, 255, 0.52);
-        cursor: not-allowed;
-        opacity: 0.72;
-      }
-
-      .countdown {
-        display: grid;
-        place-items: center;
-        text-align: center;
-      }
-
-      .countdown-label {
-        margin: 0;
-        color: var(--muted);
-        font-size: clamp(22px, 4vw, 34px);
-        letter-spacing: 0;
-      }
-
-      .days {
-        display: inline-block;
-        min-width: 1.5em;
-        color: var(--primary);
-        font-size: clamp(86px, 20vw, 188px);
-        font-weight: 900;
-        line-height: 0.96;
-        letter-spacing: 0;
-        text-shadow: 0 18px 42px rgba(200, 63, 107, 0.24);
-      }
-
-      .subcopy {
-        margin: 18px 0 0;
-        color: var(--muted);
-        font-size: clamp(15px, 2vw, 18px);
-      }
-
-      .status {
-        min-height: 22px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        flex-wrap: wrap;
-        color: var(--muted);
-        font-size: 14px;
-        text-align: center;
-      }
-
-      .retry-button {
-        border: 1px solid rgba(200, 63, 107, 0.28);
-        border-radius: 999px;
-        padding: 5px 11px;
-        color: var(--primary-strong);
-        background: rgba(255, 255, 255, 0.82);
-        cursor: pointer;
-      }
-
-      .retry-button:hover {
-        border-color: var(--primary);
-        background: #fff;
-      }
-
-      .retry-button:disabled {
-        cursor: wait;
-        opacity: 0.58;
-      }
-
-      dialog {
-        width: min(720px, calc(100vw - 32px));
-        border: 0;
-        border-radius: 24px;
-        padding: 0;
-        color: var(--text);
-        background: var(--panel-strong);
-        box-shadow: 0 30px 90px rgba(50, 37, 43, 0.28);
-      }
-
-      dialog::backdrop {
-        background: rgba(44, 32, 38, 0.34);
-        backdrop-filter: blur(6px);
-      }
-
-      .modal {
-        display: grid;
-        gap: 20px;
-        padding: 24px;
-      }
-
-      .modal-header {
-        display: flex;
-        justify-content: space-between;
-        gap: 16px;
-        align-items: start;
-      }
-
-      .modal-title {
-        margin: 0;
-        font-size: 22px;
-      }
-
-      .modal-note {
-        margin: 6px 0 0;
-        color: var(--muted);
-        font-size: 14px;
-        line-height: 1.6;
-      }
-
-      .password-field {
-        display: grid;
-        gap: 7px;
-      }
-
-      .password-label {
-        color: var(--text);
-        font-size: 14px;
-        font-weight: 700;
-      }
-
-      .password-field input {
-        width: 100%;
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        padding: 12px 13px;
-        color: var(--text);
-        background: #fff;
-        outline: none;
-      }
-
-      .password-field input:focus {
-        border-color: var(--primary);
-        box-shadow: 0 0 0 4px var(--ring);
-      }
-
-      .password-help,
-      .editor-error {
-        margin: 0;
-        color: var(--muted);
-        font-size: 13px;
-        line-height: 1.5;
-      }
-
-      .editor-error {
-        min-height: 20px;
-        color: #ba254d;
-      }
-
-      .icon-button {
-        width: 38px;
-        height: 38px;
-        display: grid;
-        place-items: center;
-        border: 1px solid var(--border);
-        border-radius: 50%;
-        color: var(--muted);
-        background: #fff;
-        cursor: pointer;
-      }
-
-      .date-list {
-        display: grid;
-        gap: 12px;
-        max-height: min(58vh, 520px);
-        overflow: auto;
-        padding-right: 4px;
-      }
-
-      .date-row {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto auto;
-        gap: 10px;
-        align-items: center;
-      }
-
-      .date-row input {
-        min-width: 0;
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        padding: 12px 13px;
-        color: var(--text);
-        background: #fff;
-        outline: none;
-      }
-
-      .date-row input:focus {
-        border-color: var(--primary);
-        box-shadow: 0 0 0 4px var(--ring);
-      }
-
-      .date-row.prediction input {
-        color: var(--muted);
-        background: #fbf8fa;
-        border-style: dashed;
-      }
-
-      .gap {
-        min-width: 112px;
-        color: var(--muted);
-        font-size: 14px;
-        text-align: right;
-      }
-
-      .row-actions {
-        min-width: 164px;
-        display: flex;
-        justify-content: flex-end;
-        gap: 8px;
-      }
-
-      .remove,
-      .quick-today {
-        border: 0;
-        border-radius: 12px;
-        padding: 10px 12px;
-        white-space: nowrap;
-        cursor: pointer;
-      }
-
-      .remove {
-        color: #8b2d46;
-        background: #fff1f5;
-      }
-
-      .quick-today {
-        border: 1px solid rgba(200, 63, 107, 0.28);
-        color: var(--primary-strong);
-        background: #fff;
-      }
-
-      .quick-today:disabled {
-        color: var(--muted);
-        opacity: 0.58;
-        cursor: default;
-      }
-
-      .modal-actions {
-        display: flex;
-        justify-content: space-between;
-        gap: 12px;
-        flex-wrap: wrap;
-      }
-
-      .left-actions,
-      .right-actions {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-      }
-
-      .button {
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        padding: 11px 16px;
-        color: var(--text);
-        background: #fff;
-        cursor: pointer;
-      }
-
-      .button.primary {
-        border-color: var(--primary);
-        color: #fff;
-        background: var(--primary);
-      }
-
-      .button.primary:hover {
-        background: var(--primary-strong);
-      }
-
-      .button:disabled {
-        opacity: 0.55;
-        cursor: wait;
-      }
-
-      .error {
-        color: #ba254d;
-      }
-
-      @media (max-width: 560px) {
-        .card {
-          border-radius: 22px;
-        }
-
-        .date-row {
-          grid-template-columns: 1fr auto;
-        }
-
-        .gap {
-          grid-column: 1 / -1;
-          text-align: left;
-        }
-
-        .row-actions {
-          grid-column: 1 / -1;
-          min-width: 0;
-        }
-      }
-    </style>
+    <link rel="icon" href="icons/calendar-days.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="app.css" />
   </head>
   <body>
-    <main class="app">
-      <section class="card" id="countdownCard" aria-label="生理期倒计时" aria-busy="true">
-        <header class="topline">
-          <span>下一次生理期预计为 <span class="next-date" id="nextDate">加载中</span></span>
-          <button class="edit-button" id="openEditor" type="button" aria-describedby="statusText" disabled>编辑</button>
-        </header>
+    <!--
+      THESIS: Answer one question at a glance: how many days remain; refuse dashboard density and decorative wellness chrome.
+      OWN-WORLD: Cool white surfaces, graphite type and controls, one berry countdown accent, thin neutral rules, restrained 6-10px control radii.
+      STORY: See the remaining days, confirm the predicted date, update the underlying dates only when needed, and always understand cloud/read-only state.
+      FIRST VIEWPORT: A quiet full-height page with a compact header, centered “还有 12 天”, predicted date, one update action, and a single-line sync footer.
+      FORM: User-approved Baoyu Design v2, pinned-user-direction-20260824.
+      FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+    -->
+    <main class="simple-app" id="countdownCard" aria-label="生理期倒计时" aria-busy="true">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">
+            <span class="icon" style="--icon-src: url('icons/calendar-days.svg')"></span>
+          </span>
+          <span>生理期倒计时</span>
+        </div>
+        <button
+          class="icon-button"
+          type="button"
+          title="更新生理期日期"
+          aria-label="更新生理期日期"
+          aria-describedby="statusText"
+          data-open-editor
+          disabled
+        >
+          <span class="icon" style="--icon-src: url('icons/calendar-cog.svg')" aria-hidden="true"></span>
+        </button>
+      </header>
 
-        <section class="countdown" aria-live="polite">
-          <div>
-            <p class="countdown-label"><span id="countdownPrefix">倒计时</span> <span class="days" id="daysLeft">--</span> 天</p>
-            <p class="subcopy" id="predictionText">正在读取云端日期记录</p>
-          </div>
-        </section>
+      <section class="simple-main" aria-label="下一次生理期预测">
+        <div class="offline-message" id="offlineMessage" role="status" hidden>
+          <span id="offlineMessageText">云端暂不可用</span>
+          <button id="retryConnection" type="button">重试</button>
+        </div>
 
-        <footer>
-          <div class="status" id="status" role="status" aria-live="polite">
-            <span id="statusText">正在连接云端，当前为只读状态</span>
-            <button class="retry-button" id="retryConnection" type="button" hidden>重试连接</button>
+        <div class="countdown-panel">
+          <h1 class="simple-label">距离下一次生理期</h1>
+          <div class="simple-readout" aria-live="polite">
+            <span id="countdownPrefix">还有</span>
+            <strong id="daysLeft">--</strong>
+            <span>天</span>
           </div>
-        </footer>
+          <p class="simple-date" id="nextDate">正在读取日期</p>
+          <p class="sr-only" id="predictionText">正在读取云端日期记录</p>
+          <button class="primary-button update-button" type="button" data-open-editor disabled>
+            <span class="icon" style="--icon-src: url('icons/calendar-cog.svg')" aria-hidden="true"></span>
+            更新日期
+          </button>
+        </div>
       </section>
+
+      <footer class="sync-footer" id="status" role="status" aria-live="polite">
+        <span class="sync-dot" aria-hidden="true"></span>
+        <span id="statusText">正在连接云端</span>
+      </footer>
     </main>
 
-    <dialog id="editor">
-      <form class="modal" id="editorForm" method="dialog">
-        <div class="modal-header">
-          <div>
-            <h2 class="modal-title">校准生理期日期</h2>
-            <p class="modal-note">已发生日期显示“间隔”，预测日期显示“预计间隔”。修改仅在云端连接正常时开放。</p>
+    <dialog id="editor" aria-labelledby="editorTitle" tabindex="-1">
+      <form class="editor-sheet" id="editorForm" method="dialog" novalidate>
+        <header class="sheet-header">
+          <h2 id="editorTitle">更新生理期日期</h2>
+          <button class="icon-button" id="closeEditor" type="button" title="关闭" aria-label="关闭">
+            <span class="icon" style="--icon-src: url('icons/x.svg')" aria-hidden="true"></span>
+          </button>
+        </header>
+
+        <div class="sheet-body">
+          <div class="list-heading">
+            <span>已确认日期</span>
+            <button class="add-button" id="addDate" type="button">
+              <span class="icon" style="--icon-src: url('icons/plus.svg')" aria-hidden="true"></span>
+              添加
+            </button>
           </div>
-          <button class="icon-button" id="closeEditor" type="button" aria-label="关闭">×</button>
+
+          <div class="confirmed-list" id="dateList"></div>
+
+          <button class="today-button" id="recordToday" type="button" hidden>
+            <span>今天已经开始？</span>
+            <strong>记为今天</strong>
+          </button>
+
+          <button class="prediction-disclosure" id="togglePredictions" type="button" aria-expanded="false">
+            <span>未来预测</span>
+            <span class="disclosure-right">
+              <span id="predictionCount">12 条</span>
+              <span class="icon" style="--icon-src: url('icons/chevron-down.svg')" aria-hidden="true"></span>
+            </span>
+          </button>
+          <div class="prediction-list" id="predictionList" hidden></div>
+
+          <div class="password-section">
+            <label for="editPassword">编辑密码</label>
+            <div class="password-wrap">
+              <span class="icon" style="--icon-src: url('icons/lock-keyhole.svg')" aria-hidden="true"></span>
+              <input
+                id="editPassword"
+                type="password"
+                autocomplete="current-password"
+                required
+                aria-describedby="editorError"
+              />
+            </div>
+            <p class="field-error" id="editorError" role="alert" aria-live="assertive"></p>
+          </div>
         </div>
 
-        <label class="password-field" for="editPassword">
-          <span class="password-label">编辑密码</span>
-          <input id="editPassword" type="password" autocomplete="current-password" required aria-describedby="passwordHelp editorError" />
-          <span class="password-help" id="passwordHelp">密码只用于本次云端保存，不会写入本机缓存。</span>
-        </label>
-
-        <p class="editor-error" id="editorError" role="alert" aria-live="assertive"></p>
-
-        <div class="date-list" id="dateList"></div>
-
-        <div class="modal-actions">
-          <div class="left-actions">
-            <button class="button" id="addDate" type="button">添加日期</button>
-          </div>
-          <div class="right-actions">
-            <button class="button" id="cancelEdit" type="button">取消</button>
-            <button class="button primary" id="saveDates" type="submit">保存</button>
-          </div>
-        </div>
+        <footer class="sheet-footer">
+          <button class="secondary-button" id="cancelEdit" type="button">取消</button>
+          <button class="primary-button" id="saveDates" type="submit">
+            <span class="icon" id="saveIcon" style="--icon-src: url('icons/check.svg')" aria-hidden="true"></span>
+            <span id="saveLabel">保存</span>
+          </button>
+        </footer>
       </form>
     </dialog>
 
@@ -478,16 +151,25 @@
         countdownPrefix: document.querySelector("#countdownPrefix"),
         daysLeft: document.querySelector("#daysLeft"),
         predictionText: document.querySelector("#predictionText"),
+        status: document.querySelector("#status"),
         statusText: document.querySelector("#statusText"),
+        offlineMessage: document.querySelector("#offlineMessage"),
+        offlineMessageText: document.querySelector("#offlineMessageText"),
         retryConnection: document.querySelector("#retryConnection"),
         editor: document.querySelector("#editor"),
-        openEditor: document.querySelector("#openEditor"),
+        openEditorButtons: document.querySelectorAll("[data-open-editor]"),
         closeEditor: document.querySelector("#closeEditor"),
         cancelEdit: document.querySelector("#cancelEdit"),
         dateList: document.querySelector("#dateList"),
+        predictionList: document.querySelector("#predictionList"),
+        predictionCount: document.querySelector("#predictionCount"),
+        togglePredictions: document.querySelector("#togglePredictions"),
+        recordToday: document.querySelector("#recordToday"),
         addDate: document.querySelector("#addDate"),
         editorForm: document.querySelector("#editorForm"),
         saveDates: document.querySelector("#saveDates"),
+        saveIcon: document.querySelector("#saveIcon"),
+        saveLabel: document.querySelector("#saveLabel"),
         editPassword: document.querySelector("#editPassword"),
         editorError: document.querySelector("#editorError"),
       };
@@ -558,6 +240,15 @@
       function formatChineseDate(value) {
         const date = parseDate(value);
         return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+      }
+
+      function formatShortDate(value) {
+        const date = parseDate(value);
+        return `${date.getMonth() + 1}月${date.getDate()}日`;
+      }
+
+      function formatListDate(value) {
+        return value.split("-").join(" / ");
       }
 
       function formatSyncTime(value) {
@@ -705,8 +396,9 @@
 
       function renderCountdown() {
         if (!dates.length) {
-          els.nextDate.textContent = "等待云端";
-          els.countdownPrefix.textContent = "倒计时";
+          els.nextDate.textContent = "正在读取日期";
+          els.countdownPrefix.textContent = "还有";
+          els.countdownPrefix.classList.remove("overdue");
           els.daysLeft.textContent = "--";
           els.predictionText.textContent =
             appState === APP_STATE.UNAVAILABLE
@@ -717,8 +409,9 @@
 
         const prediction = getPrediction(dates);
         const isOverdue = prediction.remaining < 0;
-        els.nextDate.textContent = formatChineseDate(prediction.next);
-        els.countdownPrefix.textContent = isOverdue ? "已逾期" : "倒计时";
+        els.nextDate.textContent = `${isOverdue ? "原预计" : "预计"} ${formatShortDate(prediction.next)}`;
+        els.countdownPrefix.textContent = isOverdue ? "已晚" : "还有";
+        els.countdownPrefix.classList.toggle("overdue", isOverdue);
         els.daysLeft.textContent = Math.abs(prediction.remaining);
         els.predictionText.textContent = !isOverdue
           ? `按最近一次间隔 ${prediction.interval} 天预测`
@@ -730,9 +423,16 @@
       function updateEditorInteractivity() {
         const isReadOnly = appState !== APP_STATE.READY;
         els.addDate.disabled = isReadOnly;
+        els.recordToday.disabled = isReadOnly;
         els.saveDates.disabled = isReadOnly;
         els.editPassword.disabled = isReadOnly;
-        els.saveDates.textContent = appState === APP_STATE.SAVING ? "保存中" : "保存";
+        const isSaving = appState === APP_STATE.SAVING;
+        els.saveLabel.textContent = isSaving ? "保存中" : "保存";
+        els.saveIcon.style.setProperty(
+          "--icon-src",
+          `url('icons/${isSaving ? "refresh-cw" : "check"}.svg')`,
+        );
+        els.saveIcon.classList.toggle("spin", isSaving);
 
         els.dateList.querySelectorAll("input[data-date-kind='confirmed']").forEach((input) => {
           input.disabled = isReadOnly;
@@ -748,31 +448,31 @@
         const isBusy = nextState === APP_STATE.CHECKING || nextState === APP_STATE.SAVING;
 
         els.countdownCard.setAttribute("aria-busy", String(isBusy));
-        els.openEditor.disabled = !canEdit;
-        els.openEditor.title = canEdit ? "校准生理期日期" : "连接云端后才能编辑";
+        els.openEditorButtons.forEach((button) => {
+          button.disabled = !canEdit;
+          button.title = canEdit ? "更新生理期日期" : "连接云端后才能编辑";
+        });
         els.statusText.textContent = message;
-        els.statusText.classList.toggle("error", isError);
+        els.status.classList.toggle("offline", nextState === APP_STATE.UNAVAILABLE || isError);
         const shouldShowRetry = showRetry ?? nextState === APP_STATE.UNAVAILABLE;
+        els.offlineMessage.hidden = nextState !== APP_STATE.UNAVAILABLE;
+        if (nextState === APP_STATE.UNAVAILABLE) {
+          els.offlineMessageText.textContent = dates.length
+            ? "云端暂不可用，当前显示缓存"
+            : "云端暂不可用，暂无缓存";
+        }
         els.retryConnection.hidden = !shouldShowRetry || API_BASE_URL === null;
         els.retryConnection.disabled = isBusy;
         renderCountdown();
         updateEditorInteractivity();
       }
 
-      function getCheckingMessage(cache) {
-        if (!cache) return "正在连接云端，当前为只读状态";
-        if (cache.isLegacy) return "正在连接云端，当前显示旧版本机缓存（只读）";
-
-        const syncTime = formatSyncTime(cache.syncedAt);
-        return syncTime
-          ? `正在连接云端，当前显示 ${syncTime} 同步的缓存（只读）`
-          : "正在连接云端，当前显示上次同步缓存（只读）";
+      function getCheckingMessage() {
+        return "正在连接云端";
       }
 
       function getUnavailableMessage() {
-        return dates.length
-          ? "云端暂不可用，当前显示上次同步缓存（只读）"
-          : "云端暂不可用且暂无本机缓存（只读）";
+        return dates.length ? "显示上次缓存 · 只读" : "云端不可用 · 暂无缓存";
       }
 
       async function connectToCloud({ cache = null } = {}) {
@@ -780,9 +480,7 @@
 
         if (API_BASE_URL === null) {
           setAppState(APP_STATE.UNAVAILABLE, {
-            message: dates.length
-              ? "本地文件模式无法连接云端，当前显示本机缓存（只读）"
-              : "本地文件模式无法连接云端，且暂无本机缓存（只读）",
+            message: dates.length ? "显示本机缓存 · 只读" : "本地模式 · 暂无缓存",
             showRetry: false,
           });
           return null;
@@ -800,7 +498,7 @@
             const cloudDates = extractCloudDates(data);
             dates = cloudDates;
             writeLocalCache(cloudDates);
-            setAppState(APP_STATE.READY, { message: "已连接云端，日期可编辑" });
+            setAppState(APP_STATE.READY, { message: "云端已同步" });
           } catch {
             setAppState(APP_STATE.UNAVAILABLE, { message: getUnavailableMessage(), showRetry: true });
           } finally {
@@ -813,46 +511,56 @@
 
       function renderEditor() {
         const isReadOnly = appState !== APP_STATE.READY;
-        const rows = [
-          ...draftDates.map((date) => ({ date, isPrediction: false })),
-          ...buildFuturePredictions(draftDates).map((date) => ({ date, isPrediction: true })),
-        ];
+        const confirmedRows = draftDates.map((date, index) => ({ date, index })).reverse();
+        const predictedDates = buildFuturePredictions(draftDates);
         const todayValue = getTodayIsoDate();
         const isTodayRecorded = draftDates.includes(todayValue);
-        const nextPrediction = buildFuturePredictions(draftDates, 1)[0];
+        const nextPrediction = predictedDates[0];
         const daysFromTodayToPrediction = nextPrediction
           ? daysBetween(parseDate(todayValue), parseDate(nextPrediction))
           : Number.POSITIVE_INFINITY;
         const isInRecordWindow = daysFromTodayToPrediction >= -5 && daysFromTodayToPrediction <= 5;
-        const firstPredictionIndex = draftDates.length;
 
-        els.dateList.innerHTML = rows
-          .map((row, index) => {
-            const previous = rows[index - 1]?.date;
-            const gap = previous
-              ? `${row.isPrediction ? "预计间隔" : "间隔"}${daysBetween(parseDate(previous), parseDate(row.date))}天`
-              : "";
-            const showTodayButton = !isTodayRecorded && isInRecordWindow && index === firstPredictionIndex;
-            const disabled = row.isPrediction || isReadOnly ? "disabled" : "";
-            const actionButtons = [
-              row.isPrediction
-                ? ""
-                : `<button class="remove" type="button" data-remove="${index}" aria-label="删除 ${formatChineseDate(row.date)}" ${isReadOnly ? "disabled" : ""}>删除</button>`,
-              showTodayButton
-                ? `<button class="quick-today" type="button" data-record-today="true" aria-label="把今天 ${formatChineseDate(todayValue)} 记为明确日期" ${isReadOnly ? "disabled" : ""}>记为今天</button>`
-                : "",
-            ]
-              .filter(Boolean)
-              .join("");
-            return `
-              <div class="date-row ${row.isPrediction ? "prediction" : ""}" data-index="${index}">
-                <input type="date" value="${row.date}" data-date-kind="${row.isPrediction ? "prediction" : "confirmed"}" ${disabled} aria-label="${row.isPrediction ? "预测日期" : "生理期日期"}" />
-                <span class="gap">${gap}</span>
-                ${actionButtons ? `<div class="row-actions">${actionButtons}</div>` : "<span></span>"}
+        els.dateList.innerHTML = confirmedRows
+          .map(
+            ({ date, index }) => `
+              <div class="date-row">
+                <input
+                  class="date-input"
+                  type="date"
+                  value="${date}"
+                  data-date-kind="confirmed"
+                  ${isReadOnly ? "disabled" : ""}
+                  aria-label="生理期日期 ${formatChineseDate(date)}"
+                />
+                <button
+                  class="row-icon-button"
+                  type="button"
+                  data-remove="${index}"
+                  title="删除 ${formatChineseDate(date)}"
+                  aria-label="删除 ${formatChineseDate(date)}"
+                  ${isReadOnly ? "disabled" : ""}
+                >
+                  <span class="icon" style="--icon-src: url('icons/trash-2.svg')" aria-hidden="true"></span>
+                </button>
               </div>
-            `;
-          })
+            `,
+          )
           .join("");
+
+        els.predictionList.innerHTML = predictedDates
+          .map(
+            (date) => `
+              <div class="prediction-row">
+                <span>${formatListDate(date)}</span>
+                <small>预测</small>
+              </div>
+            `,
+          )
+          .join("");
+        els.predictionCount.textContent = `${predictedDates.length} 条`;
+        els.recordToday.hidden = isTodayRecorded || !isInRecordWindow;
+        els.recordToday.setAttribute("aria-label", `把今天 ${formatChineseDate(todayValue)} 记为生理期日期`);
 
         updateEditorInteractivity();
       }
@@ -864,6 +572,8 @@
       function resetEditor() {
         draftDates = [];
         els.editPassword.value = "";
+        els.togglePredictions.setAttribute("aria-expanded", "false");
+        els.predictionList.hidden = true;
         setEditorError();
       }
 
@@ -890,7 +600,7 @@
         }
 
         setEditorError();
-        setAppState(APP_STATE.SAVING, { message: "正在保存到云端，页面暂时只读" });
+        setAppState(APP_STATE.SAVING, { message: "正在保存" });
 
         try {
           const response = await fetchApi("/api/period-dates", {
@@ -905,7 +615,7 @@
           const data = await readResponseJson(response);
 
           if (response.status === 401 || response.status === 403) {
-            setAppState(APP_STATE.READY, { message: "已连接云端，修改尚未保存" });
+            setAppState(APP_STATE.READY, { message: "云端已同步 · 修改未保存" });
             els.editPassword.value = "";
             setEditorError("编辑密码错误，请重新输入后再试。");
             els.editPassword.focus();
@@ -918,7 +628,7 @@
           writeLocalCache(savedDates);
           els.editPassword.value = "";
           els.editor.close();
-          setAppState(APP_STATE.READY, { message: "日期已保存到云端数据库" });
+          setAppState(APP_STATE.READY, { message: "云端已同步" });
         } catch (error) {
           if (error instanceof HttpError && error.status < 500) {
             setAppState(APP_STATE.READY, {
@@ -943,19 +653,24 @@
         }
       }
 
-      els.openEditor.addEventListener("click", () => {
+      function openEditor() {
         if (appState !== APP_STATE.READY || !dates.length) return;
         draftDates = [...dates];
         els.editPassword.value = "";
         setEditorError();
         renderEditor();
         els.editor.showModal();
-        els.editPassword.focus();
-      });
+        els.editor.focus({ preventScroll: true });
+      }
+
+      els.openEditorButtons.forEach((button) => button.addEventListener("click", openEditor));
 
       els.closeEditor.addEventListener("click", () => els.editor.close());
       els.cancelEdit.addEventListener("click", () => els.editor.close());
       els.editor.addEventListener("close", resetEditor);
+      els.editor.addEventListener("click", (event) => {
+        if (event.target === els.editor) els.editor.close();
+      });
 
       els.addDate.addEventListener("click", () => {
         if (appState !== APP_STATE.READY) return;
@@ -983,27 +698,32 @@
       els.dateList.addEventListener("click", (event) => {
         if (appState !== APP_STATE.READY) return;
 
-        const recordTodayButton = event.target.closest("[data-record-today]");
-        if (recordTodayButton) {
-          const todayValue = getTodayIsoDate();
-          const nextDates = validateAndNormalizeDateList([...draftDates, todayValue]);
-          if (nextDates.length === draftDates.length) {
-            setEditorError("今天已经记录过了。");
-            return;
-          }
-
-          draftDates = nextDates;
-          setEditorError();
-          renderEditor();
-          return;
-        }
-
         const removeButton = event.target.closest("[data-remove]");
         if (!removeButton) return;
         draftDates.splice(Number(removeButton.dataset.remove), 1);
         draftDates = validateAndNormalizeDateList(draftDates, { allowEmpty: true });
         setEditorError();
         renderEditor();
+      });
+
+      els.recordToday.addEventListener("click", () => {
+        if (appState !== APP_STATE.READY) return;
+        const todayValue = getTodayIsoDate();
+        const nextDates = validateAndNormalizeDateList([...draftDates, todayValue]);
+        if (nextDates.length === draftDates.length) {
+          setEditorError("今天已经记录过了。");
+          return;
+        }
+
+        draftDates = nextDates;
+        setEditorError();
+        renderEditor();
+      });
+
+      els.togglePredictions.addEventListener("click", () => {
+        const isOpen = els.togglePredictions.getAttribute("aria-expanded") === "true";
+        els.togglePredictions.setAttribute("aria-expanded", String(!isOpen));
+        els.predictionList.hidden = isOpen;
       });
 
       els.editorForm.addEventListener("submit", (event) => {
