@@ -247,6 +247,34 @@
         return `${date.getMonth() + 1}月${date.getDate()}日`;
       }
 
+      function formatWeekdaySuffix(value, referenceDate = new Date()) {
+        const weekdays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+        const date = parseDate(value);
+        const today = new Date(
+          referenceDate.getFullYear(),
+          referenceDate.getMonth(),
+          referenceDate.getDate(),
+        );
+        const currentMonday = new Date(today);
+        currentMonday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+        const currentSunday = new Date(currentMonday);
+        currentSunday.setDate(currentMonday.getDate() + 6);
+        const nextMonday = new Date(currentMonday);
+        nextMonday.setDate(currentMonday.getDate() + 7);
+        const nextSunday = new Date(currentMonday);
+        nextSunday.setDate(currentMonday.getDate() + 13);
+
+        if (date >= currentMonday && date <= currentSunday) {
+          return `（${weekdays[date.getDay()]}）`;
+        }
+
+        if (date >= nextMonday && date <= nextSunday) {
+          return `（下周${weekdays[date.getDay()].replace("周", "")}）`;
+        }
+
+        return "";
+      }
+
       function formatListDate(value) {
         return value.split("-").join(" / ");
       }
@@ -409,7 +437,10 @@
 
         const prediction = getPrediction(dates);
         const isOverdue = prediction.remaining < 0;
-        els.nextDate.textContent = `${isOverdue ? "原预计" : "预计"} ${formatShortDate(prediction.next)}`;
+        const nextDateLabel = `${isOverdue ? "原预计" : "预计"} ${formatShortDate(
+          prediction.next,
+        )}${formatWeekdaySuffix(prediction.next)}`;
+        els.nextDate.textContent = nextDateLabel;
         els.countdownPrefix.textContent = isOverdue ? "已晚" : "还有";
         els.countdownPrefix.classList.toggle("overdue", isOverdue);
         els.daysLeft.textContent = Math.abs(prediction.remaining);
