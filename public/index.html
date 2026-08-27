@@ -133,6 +133,13 @@
       const CACHE_VERSION = 1;
       const API_TIMEOUT_MS = 8000;
       const API_BASE_URL = getApiBaseUrl();
+      const SHORTCUT_TARGETS = Object.freeze({
+        Digit1: "https://todo.choi975.workers.dev/",
+        Digit2: "https://badminton.choi975.workers.dev/",
+        Digit3: "https://wenti.choi975.workers.dev/",
+        Digit4: "https://sien-day.choi975.workers.dev/",
+        Digit5: "https://choi975.github.io/xizang/",
+      });
       const APP_STATE = Object.freeze({
         CHECKING: "checking",
         READY: "ready",
@@ -783,6 +790,15 @@
           message: getUnavailableMessage(),
           showRetry: true,
         });
+      });
+
+      window.addEventListener("keydown", (event) => {
+        if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+        const target = SHORTCUT_TARGETS[event.code];
+        if (!target) return;
+
+        event.preventDefault();
+        window.location.assign(target);
       });
 
       function initialize() {
